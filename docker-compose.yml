@@ -1,0 +1,8 @@
+version: '3.9'
+
+services:
+  bot:
+    build: .
+    environment:
+      - TOKEN
+    command: poetry run python -Wd -m mexicanbonora
