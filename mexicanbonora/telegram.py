@@ -13,6 +13,7 @@ from os import environ
 from mexicanbonora.chat import chat
 from mexicanbonora.translate import translate
 from mexicanbonora.utils import retry
+from mexicanbonora.image import generate_image
 
 PORT = 8080
 URL = "https://mexicanbonora.fly.dev"
@@ -22,11 +23,11 @@ LOGGER = getLogger(__name__)
 
 
 @retry
-async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def command_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     assert update.message is not None
     assert update.message.text is not None
     assert update.effective_chat is not None
-    message: str = update.message.text.removeprefix("/chat").strip()
+    message = " ".join(update.message.text.strip().split()[1:])
     input = translate(message, "en")
     reply = chat(input)
     final_reply = translate(reply, "es")
@@ -36,12 +37,22 @@ async def reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+@retry
+async def command_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    assert update.message is not None
+    assert update.message.text is not None
+    assert update.effective_chat is not None
+    message = " ".join(update.message.text.strip().split()[1:])
+    input = translate(message, "en")
+    data = generate_image(input)
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=data)
+
+
 def telegram():
     basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=INFO
     )
     token = environ["TOKEN"]
-    debug = "DEBUG" in environ
     application: Application[
         Bot,
         CallbackContext[Bot, None, None, None],
@@ -53,7 +64,9 @@ def telegram():
         ApplicationBuilder().token(token).build()
     )
 
-    message_handler = CommandHandler("chat", callback=reply)
+    message_handler = CommandHandler("chat", callback=command_chat)
+    application.add_handler(message_handler)
+    message_handler = CommandHandler("image", callback=command_image)
     application.add_handler(message_handler)
 
     LOGGER.info(f"DEBUG: {__debug__}")
